@@ -43,8 +43,15 @@ double						command_yaw;
 tf::Vector3					integral_error;
 double						integral_error_yaw;
 
+tf::Vector3 				derivative_error;
+double 						derivative_error_yaw;
+
 tf::Vector3					previous_error_pos;
 double						previous_error_yaw;
+
+tf::Vector3					output_vel;
+
+
 
 // Gravity
 double 	gravity_compensation = 0.0 ;
@@ -274,14 +281,32 @@ int main(int argc, char** argv)
 
 	//error_pos = setpoint_pos - latest_pose.pose.pose.position;
 
+
+
+
+	z_kp = 4.0;
+	z_ki = 2.2;
+	z_kd = 4.0;
+
+
+
 //proportional error
-	error_pos[0] = setpoint_pos[0] - latest_pose.pose.pose.position.x;
-	error_pos[1] = setpoint_pos[1] - latest_pose.pose.pose.position.y;
-	error_pos[2] = setpoint_pos[2] - latest_pose.pose.pose.position.z;
-	error_yaw = setpoint_yaw - latest_pose.pose.pose.orientation;
+	error_pos[0] = 0;
+	error_pos[1] = 0;
+	error_pos[2] = 0;
+	error_yaw = 0;
 
 //integral error
+	integral_error[0] = 0;
+	integral_error[1] = 0;
+	integral_error[2] = 0;
+	integral_error_yaw = 0;
 
+//derivative error
+	derivative_error[0] = 0;
+	derivative_error[1] = 0;
+	derivative_error[2] = 0;
+	derivative_error_yaw = 0;
 
 
 
@@ -297,10 +322,10 @@ int main(int argc, char** argv)
 
 
 	// Start the dynamic_reconfigure server
-	dynamic_reconfigure::Server<rotors_exercise::ControllerConfig> server;
+	/*dynamic_reconfigure::Server<rotors_exercise::ControllerConfig> server;
 	dynamic_reconfigure::Server<rotors_exercise::ControllerConfig>::CallbackType f;
   	f = boost::bind(&reconfigure_callback, _1, _2);
-  	server.setCallback(f);
+  	server.setCallback(f);*/
 
 	ros::Timer timer;
 	timer = nh.createTimer(ros::Duration(0.2), timerCallback);  //Timer for debugging
@@ -354,29 +379,81 @@ int main(int argc, char** argv)
 			/* BEGIN: Run your position loop
 				- compute your error in position and yaw
 				- run the update of the PID loop to obtain the desired velocities
+
 				 */
+		//capture the previus error
+			previous_error_pos[0] = error_pos[0];
+			previous_error_pos[1] = error_pos[1];
+			previous_error_pos[2] = error_pos[2];
+			previous_error_yaw = error_yaw;
+
+
+		//proportional error
 			error_pos[0] = setpoint_pos[0] - latest_pose.pose.pose.position.x;
  			error_pos[1] = setpoint_pos[1] - latest_pose.pose.pose.position.y;
  			error_pos[2] = setpoint_pos[2] - latest_pose.pose.pose.position.z;
- 			error_yaw = setpoint_yaw - latest_pose.pose.pose.orientation;
+ 			error_yaw = setpoint_yaw - tf::getYaw(latest_pose.pose.pose.orientation);
 
+		//integral error
+
+			integral_error[0] += error_pos[0] * delta_time_pose;
+			integral_error[1] += error_pos[1] * delta_time_pose;
+			integral_error[2] += error_pos[2] * delta_time_pose;
+			integral_error_yaw += error_yaw * delta_time_pose;
+
+				//stablish limits on integral terms
+			if (integral_error[0] > x_integral_limit) {
+				integral_error[0] = x_integral_limit;
+			}
+			if (integral_error[0] < -x_integral_limit) {
+				integral_error[0] = -x_integral_limit;
+			}
+
+			if (integral_error[1] > y_integral_limit) {
+				integral_error[1] = y_integral_limit;
+			}
+			if (integral_error[1] < -y_integral_limit) {
+				integral_error[1] = -y_integral_limit;
+			}
+
+			if (integral_error[2] > z_integral_limit) {
+				integral_error[2] = z_integral_limit;
+			}
+			if (integral_error[2] < -z_integral_limit) {
+				integral_error[2] = -z_integral_limit;
+			}
+
+			if (integral_error_yaw > yaw_integral_limit) {
+				integral_error_yaw = yaw_integral_limit;
+			}
+			if (integral_error_yaw < -yaw_integral_limit) {
+				integral_error_yaw = -yaw_integral_limit;
+			}
+
+
+
+		//derivative error
+			derivative_error[0] = (error_pos[0] - previous_error_pos[0])/delta_time_pose;
+			derivative_error[1] = (error_pos[1] - previous_error_pos[1])/delta_time_pose;
+			derivative_error[2] = (error_pos[2] - previous_error_pos[2])/delta_time_pose;
+			derivative_error_yaw = (error_yaw - previous_error_yaw)/delta_time_pose;
 
 
 			//compute the output vel
-			vector3[0] = x_kp * error_pos[0] + x_ki * integral_error[0] + x_kd * derivative_error[0];
-			vector3[1] = y_kp * error_pos[1] + y_ki * integral_error[1] + y_kd * derivative_error[1] ;
-			command_pos[2] = z_kp * error_pos[2] + z_ki * integral_error[2] + z_kd * derivative_error[2] ;
-			command_yaw = yaw_kp * error_yaw + ;
+			output_vel[0] = x_kp * error_pos[0] + x_ki * integral_error[0] + x_kd * derivative_error[0];
+			output_vel[1] = y_kp * error_pos[1] + y_ki * integral_error[1] + y_kd * derivative_error[1];
+			command_pos[2] = z_kp * error_pos[2] + z_ki * integral_error[2] + z_kd * derivative_error[2];
+			command_yaw = yaw_kp * error_yaw + yaw_ki * integral_error_yaw + yaw_kd * derivative_error_yaw;
 
 
-			// rotate velocities to align them with the body frame
+	// rotate velocities to align them with the body frame
 			// convert from local to body coordinates (ignore Z)
-			tf::Vector3 vector3 (command_pos[0] , command_pos[1] , 0.0);
-			vector3 = rotateZ (vector3, -tf::getYaw(latest_pose.pose.pose.orientation));
+			tf::Vector3 output_vel (command_pos[0] , command_pos[1] , 0.0);
+			output_vel = rotateZ (output_vel, -tf::getYaw(latest_pose.pose.pose.orientation));
 
 			// your desired velocities should be stored in
-			x_raw_vel_cmd = vector3[0];
-			y_raw_vel_cmd = vector3[1];
+			x_raw_vel_cmd = output_vel[0];
+			y_raw_vel_cmd = output_vel[1];
 			z_raw_vel_cmd = command_pos[2];
 			yaw_raw_vel_cmd = command_yaw;
 
