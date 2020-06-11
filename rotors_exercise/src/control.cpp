@@ -284,9 +284,9 @@ int main(int argc, char** argv)
 
 
 
-	z_kp = 4.0;
+	/*z_kp = 4.0;
 	z_ki = 2.2;
-	z_kd = 4.0;
+	z_kd = 4.0;*/
 
 
 
@@ -322,10 +322,10 @@ int main(int argc, char** argv)
 
 
 	// Start the dynamic_reconfigure server
-	/*dynamic_reconfigure::Server<rotors_exercise::ControllerConfig> server;
+	dynamic_reconfigure::Server<rotors_exercise::ControllerConfig> server;
 	dynamic_reconfigure::Server<rotors_exercise::ControllerConfig>::CallbackType f;
   	f = boost::bind(&reconfigure_callback, _1, _2);
-  	server.setCallback(f);*/
+  	server.setCallback(f);
 
 	ros::Timer timer;
 	timer = nh.createTimer(ros::Duration(0.2), timerCallback);  //Timer for debugging
@@ -356,23 +356,31 @@ int main(int argc, char** argv)
 			double distance = sqrt((setpoint_pos[0]-latest_pose.pose.pose.position.x) * (setpoint_pos[0]-latest_pose.pose.pose.position.x) +
 							  (setpoint_pos[1]-latest_pose.pose.pose.position.y) * (setpoint_pos[1]-latest_pose.pose.pose.position.y) +
 							  (setpoint_pos[2]-latest_pose.pose.pose.position.z) * (setpoint_pos[2]-latest_pose.pose.pose.position.z) );
-			if (distance < 0.5)
+
+			double rotation = sqrt((setpoint_yaw - tf::getYaw(latest_pose.pose.pose.orientation)) * (setpoint_yaw - tf::getYaw(latest_pose.pose.pose.orientation)) );
+
+			if ((distance < 0.5) && (rotation < 0.01))
 			{
 				//there is still waypoints
 				if (current_index < latest_trajectory.poses.size())
 				{
 					ROS_INFO("Waypoint achieved! Moving to next waypoint");
+					//sleep(3);
+
 					geometry_msgs::PoseStamped wp;
     				wp = latest_trajectory.poses[current_index];
     				setpoint_pos[0]=wp.pose.position.x;
 					setpoint_pos[1]=wp.pose.position.y;
 					setpoint_pos[2]=wp.pose.position.z;
 					setpoint_yaw=tf::getYaw(wp.pose.orientation);
+					//sleep(3);
 					current_index++;
 				}else if  (current_index == latest_trajectory.poses.size()) // print once waypoint achieved
 				{
 					ROS_INFO("Waypoint achieved! No more waypoints. Hovering");
+					current_index = 0;
 					current_index++;
+
 				}
 			}
 
@@ -440,8 +448,8 @@ int main(int argc, char** argv)
 
 
 			//compute the output vel
-			output_vel[0] = x_kp * error_pos[0] + x_ki * integral_error[0] + x_kd * derivative_error[0];
-			output_vel[1] = y_kp * error_pos[1] + y_ki * integral_error[1] + y_kd * derivative_error[1];
+			command_pos[0] = x_kp * error_pos[0] + x_ki * integral_error[0] + x_kd * derivative_error[0];
+			command_pos[1] = y_kp * error_pos[1] + y_ki * integral_error[1] + y_kd * derivative_error[1];
 			command_pos[2] = z_kp * error_pos[2] + z_ki * integral_error[2] + z_kd * derivative_error[2];
 			command_yaw = yaw_kp * error_yaw + yaw_ki * integral_error_yaw + yaw_kd * derivative_error_yaw;
 
