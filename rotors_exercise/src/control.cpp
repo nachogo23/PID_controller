@@ -36,6 +36,8 @@ double						setpoint_yaw;
 
 tf::Vector3					error_pos;
 double						error_yaw;
+double 						error_yaw_1;
+double						error_yaw_2;
 
 tf::Vector3					command_pos;
 double						command_yaw;
@@ -295,6 +297,9 @@ int main(int argc, char** argv)
 	error_pos[1] = 0;
 	error_pos[2] = 0;
 	error_yaw = 0;
+	error_yaw_1 = 0;
+	error_yaw_2 = 0;
+
 
 //integral error
 	integral_error[0] = 0;
@@ -400,7 +405,20 @@ int main(int argc, char** argv)
 			error_pos[0] = setpoint_pos[0] - latest_pose.pose.pose.position.x;
  			error_pos[1] = setpoint_pos[1] - latest_pose.pose.pose.position.y;
  			error_pos[2] = setpoint_pos[2] - latest_pose.pose.pose.position.z;
- 			error_yaw = setpoint_yaw - tf::getYaw(latest_pose.pose.pose.orientation);
+			error_yaw = setpoint_yaw - tf::getYaw(latest_pose.pose.pose.orientation);
+
+
+		//	error_yaw_2 = (setpoint_yaw - 2 * 3.1416)  - tf::getYaw(latest_pose.pose.pose.orientation);
+
+			while (error_yaw < -3.1415)
+			{
+				error_yaw += (2 * 3.1415);
+			}
+			while (error_yaw > 3.1415)
+			{
+				error_yaw -= (2 * 3.1415);
+			}
+
 
 		//integral error
 

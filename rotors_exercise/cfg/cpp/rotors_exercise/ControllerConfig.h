@@ -759,9 +759,9 @@ ControllerConfig::GroupDescription<ControllerConfig::DEFAULT, ControllerConfig> 
     return statics;
   }
 
-//#line 10 "/home/nacho/uav_ws/src/rotors_exercise/cfg/Controller.cfg"
+//#line 10 "/home/nacho/uav_ws/src/uav_project/rotors_exercise/cfg/Controller.cfg"
       const char * const Controller_Off = "Off";
-//#line 11 "/home/nacho/uav_ws/src/rotors_exercise/cfg/Controller.cfg"
+//#line 11 "/home/nacho/uav_ws/src/uav_project/rotors_exercise/cfg/Controller.cfg"
       const char * const Controller_On = "On";
 }
 
